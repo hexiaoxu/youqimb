@@ -1,0 +1,356 @@
+<?php
+namespace app\admin\controller;
+use think\Cache;
+
+class Youqicj extends Base
+{
+    public function __construct()
+    {
+        parent::__construct();
+    }
+
+    public function index(){
+        $param = input();
+
+        //我的采集接口
+        $param['page'] = intval($param['page']) <1 ? 1 : $param['page'];
+        $param['limit'] = intval($param['limit']) <1 ? 100 : $param['limit'];
+        $where=[];
+
+        $order='collect_id desc';
+        $res = model('Collect')->listData($where,$order,$param['page'],$param['limit']);
+
+        $this->assign('list',$res['list']);
+        $this->assign('total',$res['total']);
+        $this->assign('page',$res['page']);
+        $this->assign('limit',$res['limit']);
+
+        $param['page'] = '{page}';
+        $param['limit'] = '{limit}';
+        $this->assign('param',$param);
+
+        //断点采集
+        $key = $GLOBALS['config']['app']['cache_flag']. '_'. 'collect_break_vod';
+        $collect_break_vod = Cache::get($key);
+        $key = $GLOBALS['config']['app']['cache_flag']. '_'. 'collect_break_art';
+        $collect_break_art = Cache::get($key);
+        $key = $GLOBALS['config']['app']['cache_flag']. '_'. 'collect_break_actor';
+        $collect_break_actor = Cache::get($key);
+        $this->assign('collect_break_vod', $collect_break_vod);
+        $this->assign('collect_break_art', $collect_break_art);
+        $this->assign('collect_break_actor', $collect_break_actor);
+
+        //获取配置信息
+        $list = mac_curl_get('https://cdn.jsdelivr.net/gh/hexiaoxu/youqimb/configure.json');
+        $list = json_decode($list, true);
+        $this->assign('directlink',$list['directlink']);
+        $this->assign('official',$list['official']);
+		$this->assign('xzhan',$list['xzhan']);
+        $this->assign('zonghe',$list['zonghe']);
+        $this->assign('mingxing',$list['mingxing']);
+        $this->assign('gg',$list['gg']);
+        $this->assign('gonggao',$list['gonggao']);
+
+        echo '<blockquote style="margin-bottom: 0;color: #d9534f;background-color: #fdf7f7;border-color: #d9534f;margin-top: 10px" class="layui-elem-quote">'.$list['gonggao'].'</blockquote>';
+        return $this->fetch('admin@youqicj/index');
+    }
+
+    public function dashang(){
+        return '<img src="https://z3.ax1x.com/2021/11/05/IuJXSf.png" width="100%">';
+    }
+
+    public function jc(){
+        return '<iframe src="//player.bilibili.com/player.html?aid=718951717&bvid=BV18Q4y1S7Hr&cid=436750689&page=1" scrolling="no" border="0" style="width:100%;height:400px" frameborder="no" framespacing="0" allowfullscreen="true"> </iframe>';
+    }
+
+    public function load()
+    {
+        $param = input();
+        $collect_break = Cache::get('collect_break_'. $param['flag']);
+        $url = $this->_ref;
+        if(!empty($collect_break)){
+            echo '正在载入断点位置，请稍后。。。';
+            $url = $collect_break;
+        }
+        mac_jump($url);
+    }
+
+    public function ainfo()
+    {
+        $p = controller('admin/collect');
+        return $p->info();
+    }
+
+    public function del()
+    {
+        $param = input();
+        $ids = $param['ids'];
+
+        if(!empty($ids)){
+            $where=[];
+            $where['collect_id'] = ['in',$ids];
+
+            $res = model('Collect')->delData($where);
+            if($res['code']>1){
+                return $this->error($res['msg']);
+            }
+            return $this->success($res['msg']);
+        }
+        return $this->error('参数错误');
+    }
+
+    public function api($pp=[])
+    {
+        $p = controller('admin/collect');
+        return $p->api($pp=[]);
+    }
+
+    //添加定时任务
+    public function timming($name,$url,$type,$art='')
+    {
+        $param = input();
+        $list = config('timming');
+        if (Request()->isPost()) {
+            $param['weeks'] = join(',',$param['weeks']);
+            $param['hours'] = join(',',$param['hours']);
+            $list[$param['name']] = $param;
+            $res = mac_arr2file( APP_PATH .'extra/timming.php', $list);
+            if($res===false){
+                return $this->error('保存配置文件失败，请重试!');
+            }
+
+            return $this->success('保存成功!');
+        }
+        $info = $list[$param['id']];
+
+        $this->assign('info',$info);
+
+        $this->assign('type',$type);
+        $this->assign('name',$name);
+        $this->assign('url',$url);
+        $this->assign('art',$art);
+        return $this->fetch('admin@youqicj/timming');
+    }
+
+    //播放器
+    public function thisplay($player,$name){
+        $vodplayer = config('vodplayer');
+        if (Request()->isPost()) {
+            if($vodplayer[$player]){
+                return $this->error('播放器已存在如需重新添加请先删除');
+            }
+            $param = input('post.');
+            $data = [
+                'status' => '1',
+                'from' => $player,
+                'show' => $name,
+                'target' => '_self',
+                'ps' => '0',
+                'parse' => '',
+                'sort' => '999',
+                'tip' => '无需安装任何插件',
+                'id' => $player
+            ];
+            $vodplayer[$player] = $data;
+            $sort=[];
+            foreach ($vodplayer as $k=>&$v){
+                $sort[] = $v['sort'];
+            }
+
+            array_multisort($data, SORT_DESC, SORT_FLAG_CASE , $vodplayer);
+            $res = mac_arr2file( APP_PATH .'extra/vodplayer.php', $vodplayer);
+            if($res===false){
+                return $this->error('保存配置文件失败，请重试!');
+            }
+
+            $code = [
+                'dplayer'=>'MacPlayer.Html = \'<iframe border="0" src="\'+maccms.path+\'/static/player/dplayer.html" width="100%" height="100%" marginWidth="0" frameSpacing="0" marginHeight="0" frameBorder="0" scrolling="no" vspale="0" noResize></iframe>\';
+MacPlayer.Show();',
+                'videojs'=>'MacPlayer.Html = \'<iframe border="0" src="\'+maccms.path+\'/static/player/videojs.html" width="100%" height="100%" marginWidth="0" frameSpacing="0" marginHeight="0" frameBorder="0" scrolling="no" vspale="0" noResize></iframe>\';
+MacPlayer.Show();',
+                'iva'=>'document.write(\'<script type="text/javascript" src="//cytroncdn.videojj.com/latest/cytron.core.js"></script>\');
+MacPlayer.Html = \'\';
+MacPlayer.Show();
+setTimeout(function(){
+	var ivaInstance = new Iva(\'playleft\', {
+		appkey: \'EyPKeiUt\',//必填，请在控制台查看应用标识
+		video: MacPlayer.PlayUrl,//必填，播放地址
+		title: \'\',//选填，建议填写方便后台数据统计
+		vnewsEnable: false,//是否开启新闻推送功能，默认为true
+		playerUrl: \'\', //选填，第三方播放器与Video++互动层的桥接文件，由Video++官方定制提供，默认为空
+		videoStartPrefixSeconds: 0,//选填，跳过片头，默认为0
+		videoEndPrefixSeconds: 0,//选填，跳过片尾，默认为0
+		/* 以下参数可以在“控制台->项目看板->应用管理->播放器设置” >进行全局设置，前端设置可以覆盖全局设置 */
+		skinSelect: 0,//选填，播放器皮肤，可选0、1、2，默认为0，
+		autoplay: true,//选填，是否自动播放，默认为false
+		rightHand: true,//选填，是否开启右键菜单，默认为false
+		autoFormat: false,//选填，是否自动选择最高清晰度，默>认为false
+		bubble: true,//选填，是否开启云泡功能，默认为true
+		jumpStep: 10,//选填，左右方向键快退快进的时间
+		tagTrack: false,//选填，云链是否跟踪，默认为false
+		tagShow: false,//选填，云链是否显示，默认为false
+		tagDuration: 5,//选填，云链显示时间，默认为5秒
+		tagFontSize: 16,//选填，云链文字大小，默认为16像素
+		editorEnable: true, // 选填，当用户登录之后，是否允许加载编辑器，默认为true
+		vorEnable: true, // 选填，是否允许加载灵悟，默认为true
+		vorStartGuideEnable: true //选填， 是否启用灵悟新人引导，默认为true
+	});
+},
+MacPlayer.Second * 1000 - 1000);',
+            ];
+            $res = fwrite(fopen('./static/player/' . $player.'.js','wb'),$code[$param['id']]);
+            if($res===false){
+                return $this->error(lang('wirte_err_codefile'));
+            }
+            cache('cache_data','1');
+
+            return $this->success('保存成功!');
+        }
+
+        $this->assign('vodplayer',[$vodplayer['dplayer'],$vodplayer['videojs'],$vodplayer['iva']]);
+        return $this->fetch('admin@youqicj/thisplay');
+    }
+
+    public function player(){
+        $p = controller('admin/vodplayer');
+        return $p->info();
+    }
+
+    public function jxplayer(){
+        $param = input();
+        $list = config('vodplayer');
+        if (Request()->isPost()) {
+            $apiurl = $param['parse'];
+            $player = [
+                'youku' =>[
+                    'status' => '1',
+                    'from' => 'youku',
+                    'show' => '优酷播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'youku',
+                ],
+                'mgtv' =>[
+                    'status' => '1',
+                    'from' => 'mgtv',
+                    'show' => '芒果tv播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'mgtv',
+                ],
+                'qiyi' =>[
+                    'status' => '1',
+                    'from' => 'qiyi',
+                    'show' => '爱奇艺播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'qiyi',
+                ],
+                'qq' =>[
+                    'status' => '1',
+                    'from' => 'qq',
+                    'show' => '腾讯视频播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'qq',
+                ],
+                'pptv' =>[
+                    'status' => '1',
+                    'from' => 'pptv',
+                    'show' => 'pptv播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'pptv',
+                ],
+                'sohu' =>[
+                    'status' => '1',
+                    'from' => 'sohu',
+                    'show' => '搜狐播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'sohu',
+                ],
+                'letv' =>[
+                    'status' => '1',
+                    'from' => 'letv',
+                    'show' => '乐视tv播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'letv',
+                ],
+                'm1905' =>[
+                    'status' => '1',
+                    'from' => 'm1905',
+                    'show' => 'm1905播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'm1905',
+                ],
+                'migu' =>[
+                    'status' => '1',
+                    'from' => 'migu',
+                    'show' => '咪咕视频播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'migu',
+                ],
+                'funshion' =>[
+                    'status' => '1',
+                    'from' => 'funshion',
+                    'show' => '风行播放器',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'funshion',
+                ],
+                'cctv' =>[
+                    'status' => '1',
+                    'from' => 'cctv',
+                    'show' => 'cctv',
+                    'des' => '',
+                    'ps' => '1',
+                    'parse' => $apiurl,
+                    'sort' => '999',
+                    'tip' => '',
+                    'id' => 'funshion',
+                ]
+            ];
+            $config_new = array_merge($list, $player);
+            $res = mac_arr2file(APP_PATH . 'extra/vodplayer.php', $config_new);
+            if($res===false){
+                return $this->error('保存配置文件失败，请重试!');
+            }
+            return $this->success('播放器导入成功！');
+        }
+        return $this->fetch('admin@youqicj/jxplayer');
+    }
+}
