@@ -1,356 +1,444 @@
-<?php
-namespace app\admin\controller;
-use think\Cache;
-
-class Youqicj extends Base
 {
-    public function __construct()
+  "directlink": [
     {
-        parent::__construct();
-    }
-
-    public function index(){
-        $param = input();
-
-        //我的采集接口
-        $param['page'] = intval($param['page']) <1 ? 1 : $param['page'];
-        $param['limit'] = intval($param['limit']) <1 ? 100 : $param['limit'];
-        $where=[];
-
-        $order='collect_id desc';
-        $res = model('Collect')->listData($where,$order,$param['page'],$param['limit']);
-
-        $this->assign('list',$res['list']);
-        $this->assign('total',$res['total']);
-        $this->assign('page',$res['page']);
-        $this->assign('limit',$res['limit']);
-
-        $param['page'] = '{page}';
-        $param['limit'] = '{limit}';
-        $this->assign('param',$param);
-
-        //断点采集
-        $key = $GLOBALS['config']['app']['cache_flag']. '_'. 'collect_break_vod';
-        $collect_break_vod = Cache::get($key);
-        $key = $GLOBALS['config']['app']['cache_flag']. '_'. 'collect_break_art';
-        $collect_break_art = Cache::get($key);
-        $key = $GLOBALS['config']['app']['cache_flag']. '_'. 'collect_break_actor';
-        $collect_break_actor = Cache::get($key);
-        $this->assign('collect_break_vod', $collect_break_vod);
-        $this->assign('collect_break_art', $collect_break_art);
-        $this->assign('collect_break_actor', $collect_break_actor);
-
-        //获取配置信息
-        $list = mac_curl_get('https://cdn.jsdelivr.net/gh/hexiaoxu/youqimb/configure.json');
-        $list = json_decode($list, true);
-        $this->assign('directlink',$list['directlink']);
-        $this->assign('official',$list['official']);
-		$this->assign('xzhan',$list['xzhan']);
-        $this->assign('zonghe',$list['zonghe']);
-        $this->assign('mingxing',$list['mingxing']);
-        $this->assign('gg',$list['gg']);
-        $this->assign('gonggao',$list['gonggao']);
-
-        echo '<blockquote style="margin-bottom: 0;color: #d9534f;background-color: #fdf7f7;border-color: #d9534f;margin-top: 10px" class="layui-elem-quote">'.$list['gonggao'].'</blockquote>';
-        return $this->fetch('admin@youqicj/index');
-    }
-
-    public function dashang(){
-        return '<img src="https://z3.ax1x.com/2021/11/05/IuJXSf.png" width="100%">';
-    }
-
-    public function jc(){
-        return '<iframe src="//player.bilibili.com/player.html?aid=718951717&bvid=BV18Q4y1S7Hr&cid=436750689&page=1" scrolling="no" border="0" style="width:100%;height:400px" frameborder="no" framespacing="0" allowfullscreen="true"> </iframe>';
-    }
-
-    public function load()
+      "name": "百度云",
+      "url": "http://api.dbyunzy.com/api.php/provide/vod/from/dbm3u8/?ac=list",
+      "gw": "http://help.apibdzy.com/",
+      "tag": "推荐采集",
+      "type": "dbm3u8",
+      "comment": "老牌资源网，资源丰富更新速度快，资源存储国内服务器秒播"
+    },
     {
-        $param = input();
-        $collect_break = Cache::get('collect_break_'. $param['flag']);
-        $url = $this->_ref;
-        if(!empty($collect_break)){
-            echo '正在载入断点位置，请稍后。。。';
-            $url = $collect_break;
-        }
-        mac_jump($url);
-    }
-
-    public function ainfo()
+      "name": "八戒",
+      "url": "http://cj.bajiecaiji.com/inc/bjm3u8.php",
+      "gw": "",
+      "tag": "推荐采集",
+      "type": "bjm3u8",
+      "comment": "老牌资源网，新资源速度较快，旧资源速度一般"
+    },
     {
-        $p = controller('admin/collect');
-        return $p->info();
-    }
-
-    public function del()
+      "name": "无尽",
+      "url": "https://api.wujinapi.com/api.php/provide/vod/from/wjm3u8/at/xml/",
+      "gw": "http://www.wujinzy.com/",
+      "tag": "图床切片",
+      "type": "wjm3u8",
+      "comment": "新资源较快，切片国内图床资源，速度很快高峰期不卡"
+    },
     {
-        $param = input();
-        $ids = $param['ids'];
-
-        if(!empty($ids)){
-            $where=[];
-            $where['collect_id'] = ['in',$ids];
-
-            $res = model('Collect')->delData($where);
-            if($res['code']>1){
-                return $this->error($res['msg']);
-            }
-            return $this->success($res['msg']);
-        }
-        return $this->error('参数错误');
-    }
-
-    public function api($pp=[])
+      "name": "快播",
+      "url": "http://www.kuaibozy.com/api.php/provide/vod/from/kbm3u8",
+      "gw": "https://www.kuaibozy.com/",
+      "tag": "资源一般",
+      "type": "kbm3u8",
+      "comment": "速度一般，资源还算丰富"
+    },
     {
-        $p = controller('admin/collect');
-        return $p->api($pp=[]);
-    }
-
-    //添加定时任务
-    public function timming($name,$url,$type,$art='')
+      "name": "天空",
+      "url": "https://m3u8.tiankongapi.com/api.php/provide/vod/at/json",
+      "gw": "",
+      "tag": "资源一般",
+      "type": "tkm3u8",
+      "comment": "速度一般，资源还算丰富"
+    },
     {
-        $param = input();
-        $list = config('timming');
-        if (Request()->isPost()) {
-            $param['weeks'] = join(',',$param['weeks']);
-            $param['hours'] = join(',',$param['hours']);
-            $list[$param['name']] = $param;
-            $res = mac_arr2file( APP_PATH .'extra/timming.php', $list);
-            if($res===false){
-                return $this->error('保存配置文件失败，请重试!');
-            }
-
-            return $this->success('保存成功!');
-        }
-        $info = $list[$param['id']];
-
-        $this->assign('info',$info);
-
-        $this->assign('type',$type);
-        $this->assign('name',$name);
-        $this->assign('url',$url);
-        $this->assign('art',$art);
-        return $this->fetch('admin@youqicj/timming');
+      "name": "想看",
+      "url": "https://m3u8.xiangkanapi.com/provide/vod/from/xkm3u8?ac=list",
+      "gw": "https://www.xiangkanzy.com/",
+      "tag": "资源一般",
+      "type": "xkm3u8",
+      "comment": "本站使用国内CDN加速！速度快到无法想象！"
+    },
+    {
+      "name": "北斗星",
+      "url": "https://m3u8.bdxzyapi.com/api.php/provide/vod/?ac=list",
+      "gw": "https://bdxzy.com/",
+      "tag": "资源一般",
+      "type": "bdxm3u8",
+      "comment": "热播资源均为国内CDN，保障高峰期播放速度"
+    },
+    {
+      "name": "红牛",
+      "url": "https://www.hongniuzy1.com/inc/hnm3u8.php",
+      "gw": "https://hongniuziyuan.com/",
+      "tag": "资源一般",
+      "type": "hnm3u8",
+      "comment": "速度一般，资源还算丰富"
+    },
+    {
+      "name": "605",
+      "url": "http://www.605zy.co/inc/605m3u8.php",
+      "gw": "http://www.605zy.cn/",
+      "tag": "资源一般",
+      "type": "605m3u8",
+      "comment": "速度一般，资源还算丰富"
+    },
+    {
+      "name": "速更",
+      "url": "https://sugengzy.cn/api.php/provide/vod/from/iva?ac=detail",
+      "gw": "https://sugengzy.cn/",
+      "tag": "新资源站",
+      "type": "iva",
+      "comment": "高清画质 国内商业CDN 秒拖秒播 高峰期不卡"
+    },
+    {
+      "name": "KK",
+      "url": "https://kkzy.me/api.php/provide/vod/?ac=detail",
+      "gw": "https://kkzy.me/",
+      "tag": "资源一般",
+      "type": "kkm3u8",
+      "comment": "美女写真 伦理电影"
+    },
+    {
+      "name": "88影视",
+      "url": "http://www.88zy.live/inc/m3u8.php",
+      "gw": "https://www.88zyw.net/",
+      "tag": "资源一般",
+      "type": "88zym3u8",
+      "comment": "HTTPS资源 m3u8直链"
     }
-
-    //播放器
-    public function thisplay($player,$name){
-        $vodplayer = config('vodplayer');
-        if (Request()->isPost()) {
-            if($vodplayer[$player]){
-                return $this->error('播放器已存在如需重新添加请先删除');
-            }
-            $param = input('post.');
-            $data = [
-                'status' => '1',
-                'from' => $player,
-                'show' => $name,
-                'target' => '_self',
-                'ps' => '0',
-                'parse' => '',
-                'sort' => '999',
-                'tip' => '无需安装任何插件',
-                'id' => $player
-            ];
-            $vodplayer[$player] = $data;
-            $sort=[];
-            foreach ($vodplayer as $k=>&$v){
-                $sort[] = $v['sort'];
-            }
-
-            array_multisort($data, SORT_DESC, SORT_FLAG_CASE , $vodplayer);
-            $res = mac_arr2file( APP_PATH .'extra/vodplayer.php', $vodplayer);
-            if($res===false){
-                return $this->error('保存配置文件失败，请重试!');
-            }
-
-            $code = [
-                'dplayer'=>'MacPlayer.Html = \'<iframe border="0" src="\'+maccms.path+\'/static/player/dplayer.html" width="100%" height="100%" marginWidth="0" frameSpacing="0" marginHeight="0" frameBorder="0" scrolling="no" vspale="0" noResize></iframe>\';
-MacPlayer.Show();',
-                'videojs'=>'MacPlayer.Html = \'<iframe border="0" src="\'+maccms.path+\'/static/player/videojs.html" width="100%" height="100%" marginWidth="0" frameSpacing="0" marginHeight="0" frameBorder="0" scrolling="no" vspale="0" noResize></iframe>\';
-MacPlayer.Show();',
-                'iva'=>'document.write(\'<script type="text/javascript" src="//cytroncdn.videojj.com/latest/cytron.core.js"></script>\');
-MacPlayer.Html = \'\';
-MacPlayer.Show();
-setTimeout(function(){
-	var ivaInstance = new Iva(\'playleft\', {
-		appkey: \'EyPKeiUt\',//必填，请在控制台查看应用标识
-		video: MacPlayer.PlayUrl,//必填，播放地址
-		title: \'\',//选填，建议填写方便后台数据统计
-		vnewsEnable: false,//是否开启新闻推送功能，默认为true
-		playerUrl: \'\', //选填，第三方播放器与Video++互动层的桥接文件，由Video++官方定制提供，默认为空
-		videoStartPrefixSeconds: 0,//选填，跳过片头，默认为0
-		videoEndPrefixSeconds: 0,//选填，跳过片尾，默认为0
-		/* 以下参数可以在“控制台->项目看板->应用管理->播放器设置” >进行全局设置，前端设置可以覆盖全局设置 */
-		skinSelect: 0,//选填，播放器皮肤，可选0、1、2，默认为0，
-		autoplay: true,//选填，是否自动播放，默认为false
-		rightHand: true,//选填，是否开启右键菜单，默认为false
-		autoFormat: false,//选填，是否自动选择最高清晰度，默>认为false
-		bubble: true,//选填，是否开启云泡功能，默认为true
-		jumpStep: 10,//选填，左右方向键快退快进的时间
-		tagTrack: false,//选填，云链是否跟踪，默认为false
-		tagShow: false,//选填，云链是否显示，默认为false
-		tagDuration: 5,//选填，云链显示时间，默认为5秒
-		tagFontSize: 16,//选填，云链文字大小，默认为16像素
-		editorEnable: true, // 选填，当用户登录之后，是否允许加载编辑器，默认为true
-		vorEnable: true, // 选填，是否允许加载灵悟，默认为true
-		vorStartGuideEnable: true //选填， 是否启用灵悟新人引导，默认为true
-	});
-},
-MacPlayer.Second * 1000 - 1000);',
-            ];
-            $res = fwrite(fopen('./static/player/' . $player.'.js','wb'),$code[$param['id']]);
-            if($res===false){
-                return $this->error(lang('wirte_err_codefile'));
-            }
-            cache('cache_data','1');
-
-            return $this->success('保存成功!');
-        }
-
-        $this->assign('vodplayer',[$vodplayer['dplayer'],$vodplayer['videojs'],$vodplayer['iva']]);
-        return $this->fetch('admin@youqicj/thisplay');
+  ],
+  "official": [
+    {
+      "name": "8090综合",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/?ac=list",
+      "tag": "全网资源",
+      "type": "8090zyw",
+      "comment": "爱奇艺，优酷，腾讯，芒果tv,乐视，搜狐等资源"
+    },
+    {
+      "name": "8090优酷",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/youku/?ac=list",
+      "tag": "优酷资源",
+      "type": "8090youku",
+      "comment": "8090优酷资源"
+    },
+    {
+      "name": "8090爱奇艺",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/qiyi/?ac=list",
+      "tag": "爱奇艺",
+      "type": "8090qiyi",
+      "comment": "8090爱奇艺资源"
+    },
+    {
+      "name": "8090腾讯",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/qq/?ac=list",
+      "tag": "腾讯资源",
+      "type": "8090qq",
+      "comment": "8090腾讯资源"
+    },
+    {
+      "name": "8090芒果",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/mgtv/?ac=list",
+      "tag": "芒果资源",
+      "type": "8090mgtv",
+      "comment": "8090芒果资源"
+    },
+    {
+      "name": "8090搜狐",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/sohu/?ac=list",
+      "tag": "搜狐资源",
+      "type": "8090souhu",
+      "comment": "8090搜狐资源"
+    },
+    {
+      "name": "8090乐视",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/letv/at/xml/",
+      "tag": "乐视资源",
+      "type": "8090leshi",
+      "comment": "8090乐视资源"
+    },
+    {
+      "name": "8090pptv",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/pptv/?ac=list",
+      "tag": "pptv资源",
+      "type": "8090pptv",
+      "comment": "8090pptv资源"
+    },
+    {
+      "name": "8090m1905",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/m1905/?ac=list",
+      "tag": "m1905",
+      "type": "8090m1905",
+      "comment": "8090m1905资源"
+    },
+    {
+      "name": "8090咪咕视频",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/migu/?ac=list",
+      "tag": "咪咕视频",
+      "type": "8090migu",
+      "comment": "8090咪咕视频资源"
+    },
+    {
+      "name": "萌芽综合采集",
+      "url": "http://api.appearoo.top/api.php/provide/vod/?ac=list",
+      "tag": "萌芽综合",
+      "type": "mengyazonghe",
+      "comment": "腾讯视频 爱奇艺 优酷 芒果TV PPTV 搜狐视频 乐视视频"
+    },
+    {
+      "name": "2A综合",
+      "url": "https://zy.zcocc.com/api.php/provide/vod/at/xml/",
+      "tag": "综合",
+      "type": "2azonghe",
+      "comment": "腾讯视频 爱奇艺 优酷 芒果TV PPTV 搜狐视频 乐视视频"
+    },
+    {
+      "name": "2A爱奇艺",
+      "url": "https://zy.zcocc.com/api.php/provide/vod/from/qiyi/at/xml/",
+      "tag": "爱奇艺",
+      "type": "2aiqiyi",
+      "comment": "爱奇艺资源"
+    },
+    {
+      "name": "2A优酷",
+      "url": "https://zy.zcocc.com/api.php/provide/vod/from/youku/at/xml/",
+      "tag": "优酷",
+      "type": "2ayouku",
+      "comment": "优酷资源"
+    },
+    {
+      "name": "2A腾讯视频",
+      "url": "https://zy.zcocc.com/api.php/provide/vod/from/qq/at/xml/",
+      "tag": "腾讯视频",
+      "type": "2aqq",
+      "comment": "腾讯视频资源"
+    },
+    {
+      "name": "2A芒果tv",
+      "url": "https://zy.zcocc.com/api.php/provide/vod/from/mgtv/at/xml/",
+      "tag": "芒果tv",
+      "type": "2amgtv",
+      "comment": "芒果tv资源"
+    },
+    {
+      "name": "2APPTV",
+      "url": "https://zy.zcocc.com/api.php/provide/vod/from/pptv/at/xml/",
+      "tag": "PPTV",
+      "type": "2aPPTV",
+      "comment": "PPTV资源"
+    },
+    {
+      "name": "2A乐视",
+      "url": "https://zy.zcocc.com/api.php/provide/vod/from/letv/at/xml/",
+      "tag": "乐视",
+      "type": "2aletv",
+      "comment": "乐视资源"
+    },
+    {
+      "name": "2A搜狐",
+      "url": "https://zy.zcocc.com/api.php/provide/vod/from/sohu/at/xml/",
+      "tag": "搜狐",
+      "type": "2asohu",
+      "comment": "搜狐资源"
+    },
+    {
+      "name": "清欢综合",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/?ac=list",
+      "tag": "综合",
+      "type": "qinghuanzonghe",
+      "comment": "腾讯视频 爱奇艺 优酷 芒果TV PPTV 搜狐视频 乐视视频 cctv m1905"
+    },
+    {
+      "name": "清欢爱奇艺",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/from/qiyi/?ac=list",
+      "tag": "爱奇艺",
+      "type": "qinghuaniqiyi",
+      "comment": "爱奇艺资源"
+    },
+    {
+      "name": "清欢优酷",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/from/youku/?ac=list",
+      "tag": "优酷",
+      "type": "qinghuanyouku",
+      "comment": "优酷资源"
+    },
+    {
+      "name": "清欢腾讯视频",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/from/qq/?ac=list",
+      "tag": "腾讯视频",
+      "type": "qinghuanqq",
+      "comment": "腾讯视频资源"
+    },
+    {
+      "name": "清欢芒果tv",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/from/mgtv/?ac=list",
+      "tag": "芒果tv",
+      "type": "qinghuanmgtv",
+      "comment": "芒果tv资源"
+    },
+    {
+      "name": "清欢PPTV",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/from/pptv/?ac=list",
+      "tag": "PPTV",
+      "type": "qinghuanPPTV",
+      "comment": "PPTV资源"
+    },
+    {
+      "name": "清欢乐视",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/from/letv/?ac=list",
+      "tag": "乐视",
+      "type": "qinghuanletv",
+      "comment": "乐视资源"
+    },
+    {
+      "name": "清欢搜狐",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/from/sohu/?ac=list",
+      "tag": "搜狐",
+      "type": "qinghuansohu",
+      "comment": "搜狐资源"
+    },
+    {
+      "name": "清欢cctv",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/from/cctv/?ac=list",
+      "tag": "cctv",
+      "type": "qinghuancctv",
+      "comment": "cctv资源"
+    },
+    {
+      "name": "清欢m1905",
+      "url": "https://free.qinghuanzy.com/api.php/provide/vod/from/m1905/?ac=list",
+      "tag": "m1905",
+      "type": "qinghuanm1905",
+      "comment": "m1905资源"
+    },
+    {
+      "name": "雪人综合",
+      "url": "https://zl.qd234.cn/api.php/provide/vod/?ac=list",
+      "tag": "综合",
+      "type": "xuerenzonghe",
+      "comment": "腾讯视频 爱奇艺 优酷 芒果TV PPTV 搜狐视频 乐视视频"
+    },
+    {
+      "name": "雪人爱奇艺",
+      "url": "https://zl.qd234.cn/api.php/provide/vod/from/qiyi?ac=list",
+      "tag": "爱奇艺",
+      "type": "xuereniqiyi",
+      "comment": "爱奇艺资源"
+    },
+    {
+      "name": "雪人优酷",
+      "url": "https://zl.qd234.cn/api.php/provide/vod/from/youku?ac=list",
+      "tag": "优酷",
+      "type": "xuerenyouku",
+      "comment": "优酷资源"
+    },
+    {
+      "name": "雪人腾讯视频",
+      "url": "https://zl.qd234.cn/api.php/provide/vod/from/qq?ac=list",
+      "tag": "腾讯视频",
+      "type": "xuerenqq",
+      "comment": "腾讯视频资源"
+    },
+    {
+      "name": "雪人芒果tv",
+      "url": "https://zl.qd234.cn/api.php/provide/vod/from/mgtv?ac=list",
+      "tag": "芒果tv",
+      "type": "xuerenmgtv",
+      "comment": "芒果tv资源"
+    },
+    {
+      "name": "雪人PPTV",
+      "url": "https://zl.qd234.cn/api.php/provide/vod/from/pptv?ac=list",
+      "tag": "PPTV",
+      "type": "xuerenPPTV",
+      "comment": "PPTV资源"
+    },
+    {
+      "name": "雪人乐视",
+      "url": "https://zl.qd234.cn/api.php/provide/vod/from/letv?ac=list",
+      "tag": "乐视",
+      "type": "xuerenletv",
+      "comment": "乐视资源"
+    },
+    {
+      "name": "雪人搜狐",
+      "url": "https://zl.qd234.cn/api.php/provide/vod/from/sohu?ac=list",
+      "tag": "搜狐",
+      "type": "xuerensohu",
+      "comment": "搜狐资源"
+    },
+    {
+      "name": "M3U8综合",
+      "url": "http://www.zycaiji.net:7788/api.php/provide/vod/?ac=list",
+      "tag": "综合",
+      "type": "m3u8zonghe",
+      "comment": "腾讯视频 爱奇艺 优酷 芒果TV PPTV 搜狐视频 乐视视频"
+    },
+    {
+      "name": "M3U8爱奇艺",
+      "url": "http://www.zycaiji.net:7788/api.php/provide/vod/from/qiyi/?ac=list",
+      "tag": "爱奇艺",
+      "type": "M3U8iqiyi",
+      "comment": "爱奇艺资源"
+    },
+    {
+      "name": "M3U8优酷",
+      "url": "http://www.zycaiji.net:7788/api.php/provide/vod/from/youku/?ac=list",
+      "tag": "优酷",
+      "type": "M3U8youku",
+      "comment": "优酷资源"
+    },
+    {
+      "name": "M3U8腾讯视频",
+      "url": "http://www.zycaiji.net:7788/api.php/provide/vod/from/qq/?ac=list",
+      "tag": "腾讯视频",
+      "type": "M3U8qq",
+      "comment": "腾讯视频资源"
+    },
+    {
+      "name": "M3U8芒果tv",
+      "url": "http://www.zycaiji.net:7788/api.php/provide/vod/from/mgtv/?ac=list",
+      "tag": "芒果tv",
+      "type": "M3U8mgtv",
+      "comment": "芒果tv资源"
+    },
+    {
+      "name": "M3U8PPTV",
+      "url": "http://www.zycaiji.net:7788/api.php/provide/vod/from/pptv/?ac=list",
+      "tag": "PPTV",
+      "type": "M3U8PPTV",
+      "comment": "PPTV资源"
+    },
+    {
+      "name": "M3U8乐视",
+      "url": "http://www.zycaiji.net:7788/api.php/provide/vod/from/letv/?ac=list",
+      "tag": "乐视",
+      "type": "M3U8letv",
+      "comment": "乐视资源"
+    },
+    {
+      "name": "M3U8搜狐",
+      "url": "http://www.zycaiji.net:7788/api.php/provide/vod/from/sohu/?ac=list",
+      "tag": "搜狐",
+      "type": "M3U8sohu",
+      "comment": "搜狐资源"
     }
-
-    public function player(){
-        $p = controller('admin/vodplayer');
-        return $p->info();
+  ],
+  "zonghe": [
+    {
+      "name": "明星资讯",
+      "url": "https://api.dbyunzy.com/api.php/provide/art/?ac=list&mid=2",
+      "tag": "文章采集",
+      "type": "dbyunzyartzx",
+      "comment": "文章采集 影视资讯 明星资讯 预告"
+    },
+    {
+      "name": "融兴资讯",
+      "url": "https://www.rongxingvr.cc/api.php/provide/art/?ac=list&mid=2",
+      "tag": "文章采集",
+      "type": "rongxingartzx",
+      "comment": "文章采集 影视资讯"
+    },
+    {
+      "name": "8090资讯",
+      "url": "http://zy.yilans.net:8090/api.php/provide/art/?ac=list&mid=2",
+      "tag": "文章采集",
+      "type": "8090artzx",
+      "comment": "文章采集 影视资讯 娱乐八卦 影视剧照"
     }
-
-    public function jxplayer(){
-        $param = input();
-        $list = config('vodplayer');
-        if (Request()->isPost()) {
-            $apiurl = $param['parse'];
-            $player = [
-                'youku' =>[
-                    'status' => '1',
-                    'from' => 'youku',
-                    'show' => '优酷播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'youku',
-                ],
-                'mgtv' =>[
-                    'status' => '1',
-                    'from' => 'mgtv',
-                    'show' => '芒果tv播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'mgtv',
-                ],
-                'qiyi' =>[
-                    'status' => '1',
-                    'from' => 'qiyi',
-                    'show' => '爱奇艺播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'qiyi',
-                ],
-                'qq' =>[
-                    'status' => '1',
-                    'from' => 'qq',
-                    'show' => '腾讯视频播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'qq',
-                ],
-                'pptv' =>[
-                    'status' => '1',
-                    'from' => 'pptv',
-                    'show' => 'pptv播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'pptv',
-                ],
-                'sohu' =>[
-                    'status' => '1',
-                    'from' => 'sohu',
-                    'show' => '搜狐播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'sohu',
-                ],
-                'letv' =>[
-                    'status' => '1',
-                    'from' => 'letv',
-                    'show' => '乐视tv播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'letv',
-                ],
-                'm1905' =>[
-                    'status' => '1',
-                    'from' => 'm1905',
-                    'show' => 'm1905播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'm1905',
-                ],
-                'migu' =>[
-                    'status' => '1',
-                    'from' => 'migu',
-                    'show' => '咪咕视频播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'migu',
-                ],
-                'funshion' =>[
-                    'status' => '1',
-                    'from' => 'funshion',
-                    'show' => '风行播放器',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'funshion',
-                ],
-                'cctv' =>[
-                    'status' => '1',
-                    'from' => 'cctv',
-                    'show' => 'cctv',
-                    'des' => '',
-                    'ps' => '1',
-                    'parse' => $apiurl,
-                    'sort' => '999',
-                    'tip' => '',
-                    'id' => 'funshion',
-                ]
-            ];
-            $config_new = array_merge($list, $player);
-            $res = mac_arr2file(APP_PATH . 'extra/vodplayer.php', $config_new);
-            if($res===false){
-                return $this->error('保存配置文件失败，请重试!');
-            }
-            return $this->success('播放器导入成功！');
-        }
-        return $this->fetch('admin@youqicj/jxplayer');
-    }
+  ],
+  "mingxing": [],
+  "gg" :"<tr><td><a target='_blank' href='https://www.maccmsbox.com/moban.html'><b style='color:#01aaed'>免费苹果cms模板无需登录直接下载</b></a></td><td><a target='_blank' href='https://www.dianle.org/thread-704-1-1.html'><b style='color:red'>【点乐】广告联盟推荐，跑路包赔</b></a></td><td><a target='_blank' href='https://www.maccmsbox.com/yingyong.html'><b style='color:#00f'>苹果cms插件下载</b></a></td><td><a target='_blank' href='https://wpa.qq.com/msgrd?@v=3&uin=975211589&site=qq&menu=yes'><b style='color:#ff4500'>切片源码售卖独家接口</b></a></td><td><a target='_blank' href='http://idc.56th.cc/'><b style='color:#006400'>9.9一个月香港服务器</b></a></td></tr><tr><td><a target='_blank' href='https://www.maccmsbox.com/details146.html'><b style='color:#db7093'>免费开源苹果cms弹幕播放器</b></a></td><td><a target='_blank' href='https://www.maccmsbox.com/details159.html'><b style='color:#9400d3'>苹果cms支付对接秒到账</b></a></td><td><a target='_blank' href='http://idc.56th.cc/'><b style='color:red'>国外性价比超好的服务器</b></a></td><td><a target='_blank' href='https://www.datll.com/'><b style='color:#ff5722'>大图设计 海量苹果cms摸吧 插件 app</b></a></td><td><a target='_blank' href='https://api.qd234.cn'><b style='color:#b8860b'>无水印广告秒播切片资源</b></a></td></tr><tr><td><a target='_blank' href='https://www.maccmsbox.com/details146.html'><b style='color:Sienna'>超清秒播无广告切片资源</b></a></td><td><a href='javascript:'><b style='color:red'>广告位联系qq:602524950</b></a></td><td><a href='javascript:'><b style='color:red'>广告位联系qq:602524950</b></a></td><td><a href='javascript:'><b style='color:red'>广告位联系qq:602524950</b></a></td><td><a href='javascript:'><b style='color:red'>广告位联系qq:602524950</b></a></td></tr>",
+  "gonggao":"请使用正版插件，本插件永久免费，无需下载破解等版本，交流QQ群：792135526",
+  "edition":"1.2.0"
 }
