@@ -414,6 +414,25 @@
       "comment": "搜狐资源"
     }
   ],
+  
+  
+  "xzhan": [
+    {
+      "name": "8090综合",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/?ac=list",
+      "tag": "全网资源",
+      "type": "8090zyw",
+      "comment": "爱奇艺，优酷，腾讯，芒果tv,乐视，搜狐等资源"
+    },
+    {
+      "name": "8090优酷",
+      "url": "http://zy.yilans.net:8090/api.php/provide/vod/from/youku/?ac=list",
+      "tag": "优酷资源",
+      "type": "8090youku",
+      "comment": "8090优酷资源"
+    },
+   
+  ],
   "zonghe": [
     {
       "name": "明星资讯",
